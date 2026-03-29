@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import gspread
 from google.oauth2 import service_account
-from oauth2client.service_account import ServiceAccountCredentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 import io
@@ -74,7 +73,9 @@ st.markdown("""
         font-weight: 600; display: inline-block; margin: 2px;
         border: 1px solid #dcdde1; transition: 0.3s;
     }
-    .link-pill:hover { background: #1e3799; color: white; transform: translateY(-2px); }
+    .link-pill:hover {
+        background: #1e3799; color: white; transform: translateY(-2px);
+    }
 
     section[data-testid="stSidebar"] { background-color: #ffffff; border-right: 1px solid #e1e8ed; }
 
@@ -183,7 +184,6 @@ def load_data_optimized(mode):
     sheet = gc.open_by_key(cfg['SID']).worksheet(cfg['SHEET_NAME'])
     raw_data = sheet.get_all_values()
     df = pd.DataFrame(raw_data[1:], columns=raw_data[0])
-    # Bersihkan whitespace tetapi biarkan kosong jika memang tidak ada data
     df = df.applymap(lambda x: str(x).strip())
     
     col = cfg['COLS']
@@ -216,7 +216,6 @@ def execute_action(file_obj, emp_id, emp_name, tgl_awal, col_key, mode, action_t
                 st.error("❌ Baris data tidak ditemukan.")
                 return
 
-            # Auto-Replace Logic (Hapus file lama di Drive jika ada link)
             old_link = sheet.cell(target_row, cfg['COLS'][col_key] + 1).value
             if old_link and "drive.google.com" in str(old_link):
                 try:
@@ -269,12 +268,11 @@ st.markdown("---")
 with st.container():
     st.markdown("### 🔍 Filter & Pencarian")
     c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
-    
-    search_query = c1.text_input("Cari Nama atau ID")
+    search_query = c1.text_input("Cari Nama atau ID...")
     
     if mode != "ADDENDUM":
         dept_f = c2.selectbox("Departemen", ["Semua"] + sorted(df_master.iloc[:, col_idx['DEPT']].unique().tolist()))
-        area_f = c3.selectbox("Area", ["Semua"] + sorted(df_master.iloc[:, col_idx['AREA']].unique().tolist()))
+        area_f = c3.selectbox("Area Kerja", ["Semua"] + sorted(df_master.iloc[:, col_idx['AREA']].unique().tolist()))
         stat_f = c4.selectbox("Status", ["Semua", "Aktif", "Akan Habis", "Habis"])
     else:
         stat_f = c2.selectbox("Status", ["Semua", "Aktif", "Akan Habis", "Habis"])
@@ -318,20 +316,16 @@ disp_df = dff.iloc[start_idx:end_idx].copy()
 # LOGIKA PREVIEW: Tombol hanya muncul jika link valid ada di spreadsheet
 def make_pills(r):
     p = []
-    # Cek link Draft
     d1 = str(r.iloc[col_idx['DRAFT']])
     d2 = str(r.iloc[col_idx['DRAFT2']]) if 'DRAFT2' in col_idx else ""
-    
     if d1.startswith("http"): p.append(f"<a class='link-pill' href='{d1}' target='_blank'>Draft 1</a>")
     if d2.startswith("http"): p.append(f"<a class='link-pill' href='{d2}' target='_blank'>Draft 2</a>")
     
-    # List Berkas lainnya
     check_keys = [('SIGNED','Kontrak'), ('PAKTA','Pakta'), ('PAKTA_T','P-Temp'), ('PAKTA_S','P-Signed'), ('PHOTO','Foto')]
     for k, l in check_keys:
         val = str(r.iloc[col_idx[k]])
         if val.startswith("http"):
             p.append(f"<a class='link-pill' href='{val}' target='_blank'>{l}</a>")
-            
     return " ".join(p) if p else "-"
 
 disp_df['BERKAS'] = disp_df.apply(make_pills, axis=1)
