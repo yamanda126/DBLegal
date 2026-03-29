@@ -270,7 +270,7 @@ with st.container():
     st.markdown("### 🔍 Filter & Pencarian")
     c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
     
-    search_query = c1.text_input("Cari Nama atau ID (Pendekatan)...")
+    search_query = c1.text_input("Cari Nama atau ID")
     
     if mode != "ADDENDUM":
         dept_f = c2.selectbox("Departemen", ["Semua"] + sorted(df_master.iloc[:, col_idx['DEPT']].unique().tolist()))
