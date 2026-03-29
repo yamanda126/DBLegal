@@ -87,17 +87,34 @@ st.markdown("""
 # --- 2. SETUP KONEKSI ---
 @st.cache_resource
 def get_services():
+    # 1. Setting timeout agar koneksi lebih stabil
     socket.setdefaulttimeout(120) 
-    json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "service_account.json")
+    
+    # 2. Ambil data kredensial langsung dari Streamlit Secrets
+    # (Pastikan di Secrets namanya [gcp_service_account])
+    creds_info = st.secrets["gcp_service_account"]
+    
+    # 3. Definisikan Scope
     scope = [
         "https://spreadsheets.google.com/feeds",
         "https://www.googleapis.com/auth/drive",
         "https://www.googleapis.com/auth/spreadsheets"
     ]
-    creds = ServiceAccountCredentials.from_json_keyfile_name(json_path, scope)
+    
+    # 4. Buat objek Kredensial menggunakan DICT (bukan file name)
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_info, scope)
+    
+    # 5. Authorize httplib2 untuk Google Drive API
     http_auth = creds.authorize(httplib2.Http(timeout=120))
+    
+    # 6. Bangun koneksi ke gspread (Google Sheets)
     gc = gspread.authorize(creds)
+    
+    # 7. Bangun koneksi ke Google Drive API
+    # Gunakan credentials=creds alih-alih http jika ingin lebih simpel, 
+    # tapi http=http_auth juga masih benar.
     drive = build('drive', 'v3', http=http_auth, cache_discovery=False) 
+    
     return gc, drive
 
 # --- 3. KONFIGURASI ---
