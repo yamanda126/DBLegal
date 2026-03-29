@@ -29,18 +29,12 @@ st.markdown("""
         padding-bottom: 20px;
     }
 
-    /* Sidebar Title Style */
     .sidebar-company-title {
-        color: #1e3799;
-        font-size: 18px;
-        font-weight: 800;
-        text-align: center;
-        margin-bottom: 20px;
-        padding: 10px;
+        color: #1e3799; font-size: 18px; font-weight: 800;
+        text-align: center; margin-bottom: 20px; padding: 10px;
         border-bottom: 2px solid #f1f2f6;
     }
 
-    /* Metric Card Modern */
     [data-testid="stMetric"] {
         background: white; border-radius: 15px; padding: 20px;
         box-shadow: 0 8px 16px rgba(0,0,0,0.05); border: 1px solid #e1e8ed;
@@ -51,7 +45,6 @@ st.markdown("""
     [data-testid="stMetric"]:nth-child(3) { border-top: 5px solid #f6b93b; } 
     [data-testid="stMetric"]:nth-child(4) { border-top: 5px solid #eb2f06; }
 
-    /* Desain Tabel Elegan */
     .styled-table {
         width: 100%; border-collapse: collapse; margin: 10px 0;
         font-size: 13px; border-radius: 12px; overflow: hidden;
@@ -89,10 +82,7 @@ st.markdown("""
 # --- 2. SETUP KONEKSI ---
 @st.cache_resource
 def get_services():
-    # Ambil info dari secrets dan ubah jadi dictionary biasa
     creds_info = dict(st.secrets["gcp_service_account"])
-    
-    # PERBAIKAN: Pastikan format kunci privat bersih dari spasi liar atau karakter salah pembacaan
     if "private_key" in creds_info:
         creds_info["private_key"] = creds_info["private_key"].strip().replace("\\n", "\n")
     
@@ -102,13 +92,9 @@ def get_services():
         "https://www.googleapis.com/auth/spreadsheets"
     ]
     
-    creds = service_account.Credentials.from_service_account_info(
-        creds_info, scopes=scope
-    )
-    
+    creds = service_account.Credentials.from_service_account_info(creds_info, scopes=scope)
     gc = gspread.authorize(creds)
     drive = build('drive', 'v3', credentials=creds, cache_discovery=False)
-    
     return gc, drive
 
 # --- 3. KONFIGURASI ---
@@ -184,7 +170,7 @@ def load_data_optimized(mode):
     sheet = gc.open_by_key(cfg['SID']).worksheet(cfg['SHEET_NAME'])
     raw_data = sheet.get_all_values()
     df = pd.DataFrame(raw_data[1:], columns=raw_data[0])
-    df = df.applymap(lambda x: str(x).strip())
+    df = df.applymap(lambda x: str(x).strip() if x else "")
     
     col = cfg['COLS']
     df['AWAL_DT'] = df.iloc[:, col['AWAL']].apply(parse_indo_date)
@@ -285,7 +271,7 @@ with st.container():
         start_date = dc1.date_input("Mulai Dari", value=None)
         end_date = dc2.date_input("Sampai Dengan", value=None)
 
-# Apply Logic Filter
+# Apply Filter
 dff = df_master.copy()
 if search_query:
     mask = (dff.iloc[:, col_idx['NAMA']].str.contains(search_query, case=False, na=False)) | \
@@ -294,7 +280,7 @@ if search_query:
 
 if dept_f != "Semua": dff = dff[dff.iloc[:, col_idx['DEPT']] == dept_f]
 if area_f != "Semua": dff = dff[dff.iloc[:, col_idx['AREA']] == area_f]
-if stat_f != "Semua": dff = dff['Status_T'] == stat_f
+if stat_f != "Semua": dff = dff[dff['Status_T'] == stat_f]
 if start_date: dff = dff[dff['AWAL_DT'].dt.date >= start_date]
 if end_date: dff = dff[dff['AWAL_DT'].dt.date <= end_date]
 
@@ -305,7 +291,6 @@ st.subheader("📋 Tabel Data Personel")
 items_per_page = 30
 total_data = len(dff)
 total_pages = math.ceil(total_data / items_per_page) if total_data > 0 else 1
-
 col_page1, col_page2 = st.columns([1, 4])
 current_page = col_page1.number_input(f"Halaman (1 - {total_pages})", min_value=1, max_value=total_pages, step=1)
 
@@ -313,20 +298,30 @@ start_idx = (current_page - 1) * items_per_page
 end_idx = start_idx + items_per_page
 disp_df = dff.iloc[start_idx:end_idx].copy()
 
-# LOGIKA PREVIEW: Tombol hanya muncul jika link valid ada di spreadsheet
+# LOGIKA PREVIEW BERKAS - DIPERBAIKI (Tahan Error Non-String)
 def make_pills(r):
     p = []
-    d1 = str(r.iloc[col_idx['DRAFT']])
-    d2 = str(r.iloc[col_idx['DRAFT2']]) if 'DRAFT2' in col_idx else ""
-    if d1.startswith("http"): p.append(f"<a class='link-pill' href='{d1}' target='_blank'>Draft 1</a>")
-    if d2.startswith("http"): p.append(f"<a class='link-pill' href='{d2}' target='_blank'>Draft 2</a>")
     
+    # Fungsi pembantu untuk cek link dengan aman
+    def check_link(val, label):
+        s_val = str(val).strip() if val else ""
+        if s_val.lower().startswith("http"):
+            return f"<a class='link-pill' href='{s_val}' target='_blank'>{label}</a>"
+        return ""
+
+    # Draft
+    p.append(check_link(r.iloc[col_idx['DRAFT']], "Draft 1"))
+    if 'DRAFT2' in col_idx:
+        p.append(check_link(r.iloc[col_idx['DRAFT2']], "Draft 2"))
+    
+    # Berkas Utama
     check_keys = [('SIGNED','Kontrak'), ('PAKTA','Pakta'), ('PAKTA_T','P-Temp'), ('PAKTA_S','P-Signed'), ('PHOTO','Foto')]
-    for k, l in check_keys:
-        val = str(r.iloc[col_idx[k]])
-        if val.startswith("http"):
-            p.append(f"<a class='link-pill' href='{val}' target='_blank'>{l}</a>")
-    return " ".join(p) if p else "-"
+    for k, label in check_keys:
+        p.append(check_link(r.iloc[col_idx[k]], label))
+            
+    # Gabung semua pill yang tidak kosong
+    p_final = [x for x in p if x != ""]
+    return " ".join(p_final) if p_final else "-"
 
 disp_df['BERKAS'] = disp_df.apply(make_pills, axis=1)
 
