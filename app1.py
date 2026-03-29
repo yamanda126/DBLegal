@@ -88,22 +88,23 @@ st.markdown("""
 # --- 2. SETUP KONEKSI ---
 @st.cache_resource
 def get_services():
-    # 1. Ambil info dari secrets
-    creds_info = st.secrets["gcp_service_account"]
+    # Ambil info dari secrets dan ubah jadi dictionary biasa
+    creds_info = dict(st.secrets["gcp_service_account"])
     
-    # 2. Definisikan scope
+    # PERBAIKAN: Pastikan format kunci privat bersih dari spasi liar atau karakter salah pembacaan
+    if "private_key" in creds_info:
+        creds_info["private_key"] = creds_info["private_key"].strip().replace("\\n", "\n")
+    
     scope = [
         "https://spreadsheets.google.com/feeds",
         "https://www.googleapis.com/auth/drive",
         "https://www.googleapis.com/auth/spreadsheets"
     ]
     
-    # 3. Gunakan google-auth resmi (lebih stabil dibanding oauth2client)
     creds = service_account.Credentials.from_service_account_info(
         creds_info, scopes=scope
     )
     
-    # 4. Bangun koneksi
     gc = gspread.authorize(creds)
     drive = build('drive', 'v3', credentials=creds, cache_discovery=False)
     
